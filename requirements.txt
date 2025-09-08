@@ -5,4 +5,3 @@ langchain-community
 faiss-cpu
 pydantic
 python-dotenv
-ipython

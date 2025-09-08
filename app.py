@@ -10,7 +10,6 @@ from langgraph.graph import StateGraph, END
 import json
 import os
 from dotenv import load_dotenv
-from IPython.display import Image
 from langchain_core.runnables.graph import MermaidDrawMethod
 
 # Load environment variables from .env file
@@ -25,10 +24,8 @@ class LogAnalysisState(TypedDict):
     error_codes: List[int]  # The final list of unique error codes.
     vectorstore: FAISS  # The FAISS vector store for retrieval.
 
-# ==============================================================================
-# Step 2: Define the Nodes (the building blocks of the workflow)
+
 # Each function below represents a "node" in the LangGraph.
-# ==============================================================================
 
 def ingest_and_embed(state: LogAnalysisState) -> LogAnalysisState:
     """Reads the log file, chunks it, and creates a vector store."""
@@ -39,8 +36,8 @@ def ingest_and_embed(state: LogAnalysisState) -> LogAnalysisState:
         log_content = f.read()
 
     docs = [Document(page_content=line) for line in log_content.splitlines() if line.strip()] #Each line of the log file becomes it's own document
-    embeddings = OpenAIEmbeddings() #Create instance
-    vectorstore = FAISS.from_documents(docs, embeddings) #For quick RAG retrival later
+    embeddings = OpenAIEmbeddings() 
+    vectorstore = FAISS.from_documents(docs, embeddings) #Create embedding vectors for each line in the original log file and store in FAISS Vector
 
     state["vectorstore"] = vectorstore
     state["document_chunks"] = docs
@@ -80,7 +77,7 @@ def extract_codes(state: LogAnalysisState) -> LogAnalysisState:
 
     context = "\n".join([doc.page_content for doc in snippets])
     
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.07)
     structured_llm = llm.with_structured_output(ErrorCodes)
     
     prompt_template = ChatPromptTemplate.from_messages([
@@ -88,18 +85,13 @@ def extract_codes(state: LogAnalysisState) -> LogAnalysisState:
         ("human", "Log Snippets:\n\n{context}")
     ])
     
-    chain = prompt_template | structured_llm
+    chain = prompt_template | structured_llm # | chains multiple runnable objects together
     result = chain.invoke({"context": context})
 
     state["error_codes"] = sorted(list(set(result.unique_error_codes)))
     return state
 
-
-# ==============================================================================
-# Step 3: Build and Compile the LangGraph
-# This section assembles the nodes and defines the workflow's structure.
-# ==============================================================================
-# Place this section immediately after the node definitions
+# Build and Compile the LangGraph
 
 def has_snippets(state: LogAnalysisState) -> str:
     """Checks if the retrieval step found any snippets."""
@@ -129,11 +121,7 @@ builder.add_edge("extract", END)
 
 graph = builder.compile()
 
-# ==============================================================================
-# Step 4: Run the Application
-# This is the main execution block of the script.
-# ==============================================================================
-# Place this section at the very end of the file
+#Create a mock log file
 
 def create_sample_log(filename="sample_log.txt"):
     """Creates a dummy log file with various error formats."""
@@ -167,14 +155,11 @@ if __name__ == "__main__":
     
     os.remove(log_file_name)
 
-    # Visualize the graph
+    # Visualize the graph, this is placed in the readme of the repo
     try:
         graph_img = graph.get_graph().draw_mermaid_png(
             draw_method=MermaidDrawMethod.API
         )
-        # The image is now in the graph_img variable. 
-        # You can save it to a file, or if you're in a Jupyter notebook,
-        # you can display it directly using IPython.display.
         with open("graph_visualization.png", "wb") as f:
             f.write(graph_img)
         print("Graph visualization saved to graph_visualization.png")
