@@ -10,6 +10,8 @@ from langgraph.graph import StateGraph, END
 import json
 import os
 from dotenv import load_dotenv
+from IPython.display import Image
+from langchain_core.runnables.graph import MermaidDrawMethod
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,7 +29,6 @@ class LogAnalysisState(TypedDict):
 # Step 2: Define the Nodes (the building blocks of the workflow)
 # Each function below represents a "node" in the LangGraph.
 # ==============================================================================
-# Place this section immediately after Step 1
 
 def ingest_and_embed(state: LogAnalysisState) -> LogAnalysisState:
     """Reads the log file, chunks it, and creates a vector store."""
@@ -37,9 +38,9 @@ def ingest_and_embed(state: LogAnalysisState) -> LogAnalysisState:
     with open(log_file_path, 'r') as f:
         log_content = f.read()
 
-    docs = [Document(page_content=line) for line in log_content.splitlines() if line.strip()]
-    embeddings = OpenAIEmbeddings()
-    vectorstore = FAISS.from_documents(docs, embeddings)
+    docs = [Document(page_content=line) for line in log_content.splitlines() if line.strip()] #Each line of the log file becomes it's own document
+    embeddings = OpenAIEmbeddings() #Create instance
+    vectorstore = FAISS.from_documents(docs, embeddings) #For quick RAG retrival later
 
     state["vectorstore"] = vectorstore
     state["document_chunks"] = docs
@@ -165,3 +166,17 @@ if __name__ == "__main__":
     print(json.dumps(output_json, indent=4))
     
     os.remove(log_file_name)
+
+    # Visualize the graph
+    try:
+        graph_img = graph.get_graph().draw_mermaid_png(
+            draw_method=MermaidDrawMethod.API
+        )
+        # The image is now in the graph_img variable. 
+        # You can save it to a file, or if you're in a Jupyter notebook,
+        # you can display it directly using IPython.display.
+        with open("graph_visualization.png", "wb") as f:
+            f.write(graph_img)
+        print("Graph visualization saved to graph_visualization.png")
+    except Exception as e:
+        print(f"Could not generate graph visualization: {e}")
