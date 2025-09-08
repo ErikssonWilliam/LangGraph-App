@@ -1,8 +1,6 @@
 # LangGraph-App
 Small application using LangGraph for interview with Ericsson.
 
-# LangGraph Log Analysis Workflow
-
 Here is a visual representation of the LangGraph workflow:
 
 ![Log Analysis Graph](graph_visualization.png)
