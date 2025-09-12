@@ -32,13 +32,12 @@ def ingest_and_embed(state: LogAnalysisState) -> LogAnalysisState:
     print("---INGESTING & EMBEDDING LOGS---")
     log_file_path = state["log_file"]
     
-    with open(log_file_path, 'r') as f:
-        log_content = f.read()
+    with open(log_file_path, 'r') as file:
+        log_content = file.read()
 
     docs = [Document(page_content=line) for line in log_content.splitlines() if line.strip()] #Each line of the log file becomes it's own document
     embeddings = OpenAIEmbeddings() 
     vectorstore = FAISS.from_documents(docs, embeddings) #Create embedding vectors for each line in the original log file and store in FAISS Vector
-
     state["vectorstore"] = vectorstore
     state["document_chunks"] = docs
     
@@ -50,7 +49,7 @@ def retrieve_errors(state: LogAnalysisState) -> LogAnalysisState:
     """Retrieves log snippets likely containing error codes using a retriever."""
     print("---RETRIEVING ERROR LOGS---")
     vectorstore = state["vectorstore"]
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 10}) #Retrieve top 10 most relevant log lines
     
     query = "find all lines with error codes, error messages, or failure alerts"
     retrieved_docs = retriever.invoke(query)
@@ -100,6 +99,24 @@ def has_snippets(state: LogAnalysisState) -> str:
     else:
         return "end"
 
+
+
+#Create a mock log file
+
+def create_sample_log(filename="sample_log.txt"):
+    """Creates a dummy log file with various error formats."""
+    with open(filename, "w") as f:
+        f.write("2025-09-05 10:00:01 INFO: Starting application.\n")
+        f.write("2025-09-05 10:00:05 ERROR: Database connection failed. Code: 500.\n")
+        f.write("2025-09-05 10:01:10 WARNING: Disk usage is at 90%.\n")
+        f.write("2025-09-05 10:02:20 CRITICAL: Fatal error, process terminated. (ERR-404)\n")
+        f.write("2025-09-05 10:03:05 INFO: User 'Alice' logged in.\n")
+        f.write("2025-09-05 10:04:15 ERROR: Unable to parse configuration file. Failure code: 0x1A.\n")
+        f.write("2025-09-05 10:05:30 ERROR: Timeout occurred. HTTP status 408.\n")
+    print(f"Sample log file '{filename}' created.")
+
+#Logic for the graph structure
+
 builder = StateGraph(LogAnalysisState) #Create an instance of StateGraph
 
 builder.add_node("ingest", ingest_and_embed)
@@ -120,20 +137,6 @@ builder.add_conditional_edges(
 builder.add_edge("extract", END)
 
 graph = builder.compile()
-
-#Create a mock log file
-
-def create_sample_log(filename="sample_log.txt"):
-    """Creates a dummy log file with various error formats."""
-    with open(filename, "w") as f:
-        f.write("2025-09-05 10:00:01 INFO: Starting application.\n")
-        f.write("2025-09-05 10:00:05 ERROR: Database connection failed. Code: 500.\n")
-        f.write("2025-09-05 10:01:10 WARNING: Disk usage is at 90%.\n")
-        f.write("2025-09-05 10:02:20 CRITICAL: Fatal error, process terminated. (ERR-404)\n")
-        f.write("2025-09-05 10:03:05 INFO: User 'Alice' logged in.\n")
-        f.write("2025-09-05 10:04:15 ERROR: Unable to parse configuration file. Failure code: 0x1A.\n")
-        f.write("2025-09-05 10:05:30 ERROR: Timeout occurred. HTTP status 408.\n")
-    print(f"Sample log file '{filename}' created.")
 
 if __name__ == "__main__":
     log_file_name = "sample_log.txt"
@@ -165,3 +168,4 @@ if __name__ == "__main__":
         print("Graph visualization saved to graph_visualization.png")
     except Exception as e:
         print(f"Could not generate graph visualization: {e}")
+
